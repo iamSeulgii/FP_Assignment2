@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <fstream>
 #include <cstdio>
 #include <cstdlib>
@@ -14,11 +14,12 @@
 #define blockSize 4096
 #define NODESIZE 5
 #define EPS 0.0001
-#define BUCKETSIZE 3
 #define INIT_GLOB_DEPTH 0
 #define SHOW_DUPLICATE_BUCKETS 0
 
 using namespace std;
+
+
 
 typedef struct _students {
 
@@ -32,10 +33,9 @@ typedef struct _students {
 
 typedef struct _block {
 
-	Students records[blockSize/sizeof(Students)];
+	Students records[blockSize / sizeof(Students)];
 
 }Block;
-
 
 
 typedef struct _hashMap {
@@ -49,76 +49,76 @@ typedef struct _hashMap {
 class Bucket {
 
 private:
-	int depth, size;
-	map<int, int> values;
+	int hashPrefix, size;
+	map<int, int> hashTable;
 
 public:
 
-	Bucket(int depth, int size) {
-		this->depth = depth;
+	Bucket(int hashPrefix, int size) {
+		this->hashPrefix = hashPrefix;
 		this->size = size;
 	}
 
-	int insert(int key, int value) {
+	int insert(int _key, int _blockNum) {
 		map<int, int>::iterator it;
-		it = values.find(key);
-		if (it != values.end())
-			return -1;
-		if (isFull())
-			return 0;
-		values[key] = value;
-		return 1;
+		it = hashTable.find(_key);
+		if (it != hashTable.end()) return -1;
+		else if (isFull()) return 0;
+		else {
+			hashTable[_key] = _blockNum;
+			return 1;
+		}
 	}
 
 	bool search(int key) {
 		map<int, int>::iterator it;
-		it = values.find(key);
-		if (it != values.end())
+		it = hashTable.find(key);
+		if (it != hashTable.end())
 			return true;
 		else    return false;
 	}
 
 	int isFull(void) {
-		if (values.size() == size)
+		if (hashTable.size() == size)
 			return 1;
 		else
 			return 0;
 	}
 
 	int isEmpty(void) {
-		if (values.size() == 0)
+		if (hashTable.size() == 0)
 			return 1;
 		else
 			return 0;
 	}
 
-	int getValueSize() {
+	int gethashTableize() {
 
-		return values.size();
+		return hashTable.size();
 	}
 
-	int getDepth(void) {
-		return depth;
+	int getHashPrefix(void) {
+		return hashPrefix;
 	}
 
-	int increaseDepth(void) {
-		depth++;
-		return depth;
+	int increaseHashPrefix(void) {
+		hashPrefix++;
+		return hashPrefix;
 	}
 
-	int decreaseDepth(void) {
-		depth--;
-		return depth;
+	int decreaseHashPrefix(void) {
+		hashPrefix--;
+		return hashPrefix;
 	}
 
 	map<int, int> copy(void) {
-		map<int, int> temp(values.begin(), values.end());
+		map<int, int> temp(hashTable.begin(), hashTable.end());
 		return temp;
 	}
 
 
 	void clear(void) {
-		values.clear();
+		hashTable.clear();
 	}
 
 	//insert values into Student.hash as binary format
@@ -126,17 +126,17 @@ public:
 	int writeHashFile(FILE *& fout) {
 
 		map<int, int>::iterator it;
-		HashMap* hashMap = new HashMap[values.size()];
+		HashMap* hashMap = new HashMap[hashTable.size()];
 		int i = 0;
-		for (it = values.begin(); it != values.end(); it++) {
-
+		for (it = hashTable.begin(); it != hashTable.end(); it++) {
+	
 			hashMap[i].key = it->first;
 			hashMap[i].tableNum = it->second;
 
 			i++;
 		}
 
-		fwrite((void*)hashMap, sizeof(HashMap), values.size(), fout);
+		fwrite((void*)hashMap, sizeof(HashMap), hashTable.size(), fout);
 		return 0;
 	}
 
@@ -144,51 +144,51 @@ public:
 
 
 class Directory {
-	int global_depth, bucket_size;
+
+	int hashPrefix;
 	vector<Bucket*> buckets;
 
-	int hash(int n) {
-		return n&((1 << global_depth) - 1);
-	}
 
-	int pairIndex(int bucket_no, int depth) {
-		return bucket_no ^ (1 << (depth - 1));
+	//증가된 hashPrefix맞게 버킷넘버 추가
+	int pairIndex(int bucketNum, int hashPrefix) {
+		return bucketNum ^ (1 << (hashPrefix - 1));
 	}
 
 
 	void grow(void) {
-		for (int i = 0; i < 1 << global_depth; i++)
+		for (int i = 0; i < 1 << hashPrefix; i++)
 			buckets.push_back(buckets[i]);
-		global_depth++;
+		hashPrefix++;
 	}
 
 	void shrink(void) {
 		int flag = 1, i;
 		for (i = 0; i < buckets.size(); i++) {
-			if (buckets[i]->getDepth() == global_depth) {
+			if (buckets[i]->getHashPrefix() == hashPrefix) {
 				flag = 0;
 				return;
 			}
 		}
-		global_depth--;
-		for (i = 0; i < 1 << global_depth; i++)
+		hashPrefix--;
+		for (i = 0; i < 1 << hashPrefix; i++)
 			buckets.pop_back();
 	}
 
-	void split(int bucket_no) {
+
+	void split(int bucketNum) {
 		int local_depth, pair_index, index_diff, dir_size, i;
 		map<int, int> temp;
 		map<int, int>::iterator it;
 
-		local_depth = buckets[bucket_no]->increaseDepth();
-		if (local_depth>global_depth)
+		local_depth = buckets[bucketNum]->increaseHashPrefix();
+		if (local_depth>hashPrefix)
 			grow();
-		pair_index = pairIndex(bucket_no, local_depth);
-		buckets[pair_index] = new Bucket(local_depth, bucket_size);
-		temp = buckets[bucket_no]->copy();
-		buckets[bucket_no]->clear();
+		pair_index = pairIndex(bucketNum, local_depth);
+		buckets[pair_index] = new Bucket(local_depth, blockSize);
+		temp = buckets[bucketNum]->copy();
+		buckets[bucketNum]->clear();
 		index_diff = 1 << local_depth;
-		dir_size = 1 << global_depth;
+		dir_size = 1 << hashPrefix;
 		for (i = pair_index - index_diff; i >= 0; i -= index_diff)
 			buckets[i] = buckets[pair_index];
 		for (i = pair_index + index_diff; i<dir_size; i += index_diff)
@@ -198,22 +198,23 @@ class Directory {
 	}
 
 
-	void merge(int bucket_no) {
-		int local_depth, pair_index, index_diff, dir_size, i;
+	void merge(int bucketNum) {
+		int local_hashPrefix, extendedBucketNum, index_diff, dir_size, i;
 
-		local_depth = buckets[bucket_no]->getDepth();
-		pair_index = pairIndex(bucket_no, local_depth);
-		index_diff = 1 << local_depth;
-		dir_size = 1 << global_depth;
+		local_hashPrefix = buckets[bucketNum]->getHashPrefix();
+		extendedBucketNum = pairIndex(bucketNum, local_hashPrefix);
+		index_diff = 1 << local_hashPrefix;
+		dir_size = 1 << hashPrefix;
 
-		if (buckets[pair_index]->getDepth() == local_depth) {
-			buckets[pair_index]->decreaseDepth();
-			delete(buckets[bucket_no]);
-			buckets[bucket_no] = buckets[pair_index];
-			for (i = bucket_no - index_diff; i >= 0; i -= index_diff)
-				buckets[i] = buckets[pair_index];
-			for (i = bucket_no + index_diff; i<dir_size; i += index_diff)
-				buckets[i] = buckets[pair_index];
+		if (buckets[extendedBucketNum]->getHashPrefix() == local_hashPrefix) {
+
+			buckets[extendedBucketNum]->decreaseHashPrefix();
+			delete(buckets[bucketNum]);
+			buckets[bucketNum] = buckets[extendedBucketNum];
+			for (i = bucketNum - index_diff; i >= 0; i -= index_diff)
+				buckets[i] = buckets[extendedBucketNum];
+			for (i = bucketNum + index_diff; i<dir_size; i += index_diff)
+				buckets[i] = buckets[extendedBucketNum];
 		}
 	}
 
@@ -221,7 +222,7 @@ class Directory {
 	string bucket_id(int n) {
 		int d;
 		string s;
-		d = buckets[n]->getDepth();
+		d = buckets[n]->getHashPrefix();
 		s = "";
 		while (n>0 && d>0) {
 			s = (n % 2 == 0 ? "0" : "1") + s;
@@ -237,26 +238,42 @@ class Directory {
 
 public:
 
-	Directory(int depth, int bucket_size) {
-		this->global_depth = depth;
-		this->bucket_size = bucket_size;
-		for (int i = 0; i < 1 << depth; i++) {
-			buckets.push_back(new Bucket(depth, bucket_size));
+	Directory() {
+		this->hashPrefix = 0;
+		for (int i = 0; i < 1 << this->hashPrefix; i++) {
+			buckets.push_back(new Bucket(this->hashPrefix, blockSize/sizeof(Students)));
 		}
 	}
 
-	void insert(int key, int value, bool reinserted) {
-		int bucket_no = hash(key);
-		int status = buckets[bucket_no]->insert(key, value);
+
+	int hash(int n) {
+		return n&((1 << hashPrefix) - 1);
+	}
+
+	void insert(int key, int bucketNum, bool reinserted) {
+
+		int cmpIdx = 0;
+
+		if (hashPrefix == 0) {
+
+		}
+		else {
+			
+			for (int i = 0; i < hashPrefix; i++)
+				cmpIdx += pow(2, i);
+				
+		}
+		int status = buckets[(key & cmpIdx)]->insert(key, bucketNum);
+
 		if (status == 0) {
-			split(bucket_no);
-			insert(key, value, reinserted);
+			split(bucketNum);
+			insert(key, bucketNum, reinserted);
 		}
 	}
 
 	bool search(int key) {
-		int bucket_no = hash(key);
-		return buckets[bucket_no]->search(key);
+		int bucketNum = hash(key);
+		return buckets[bucketNum]->search(key);
 	}
 
 
@@ -266,9 +283,10 @@ public:
 	}
 
 
+
 	int writeHashFile(FILE *& fout, bool duplicates) {
 		fseek(fout, 0, SEEK_SET);
-		for (int i = 0; i<buckets.size(); i++) 
+		for (int i = 0; i<buckets.size(); i++)
 			buckets[i]->writeHashFile(fout);
 		return 0;
 	}
@@ -326,7 +344,7 @@ int getInputData(Block*& blocks, string input_str) {
 
 
 void insertDB(Block*& blocks, int count) {
-	//insert values into DB as binary format
+	//insert hashTable into DB as binary format
 	int numOfRecords = blockSize / sizeof(Students);
 	FILE *DBFile = fopen("Students.DB", "wb");
 	fseek(DBFile, 0, SEEK_SET);
@@ -347,6 +365,8 @@ void readHashFile(HashMap*& readHashMap, int count) {
 
 }
 
+
+
 int main() {
 
 	int num;
@@ -356,19 +376,18 @@ int main() {
 	insertDB(writeBlocks, count);
 	int numOfRecords = blockSize / sizeof(Students);
 
-	Directory directory(INIT_GLOB_DEPTH, BUCKETSIZE); //hash directory initialization
-	
-	//read values from Students.DB
-	FILE *readDB = fopen("Students.DB", "rb"); 
-	fseek(readDB, 0, SEEK_SET);
-	readBlocks = new Block[count / numOfRecords + 1]; 
-	fread((void*)readBlocks, sizeof(Block), count / numOfRecords + 1, readDB);
+	Directory directory; //hash directory initialization
 
+						 //read values from Students.DB
+	FILE *readDB = fopen("Students.DB", "rb");
+	fseek(readDB, 0, SEEK_SET);
+	readBlocks = new Block[count / numOfRecords + 1];
+	fread((void*)readBlocks, sizeof(Block), count / numOfRecords + 1, readDB);
 	//studentID is key of Hash
 	//insert key value into hash table
 	for (int j = 0; j < count / numOfRecords + 1; j++) {
 		for (int i = 0; i < numOfRecords; i++) {
-			directory.insert(readBlocks[j].records[i].studentID, j, 0);
+			directory.insert(readBlocks[j].records[i].studentID, directory.hash(readBlocks[j].records[i].studentID), 0);
 		}
 	}
 
@@ -379,6 +398,7 @@ int main() {
 
 
 	HashMap* readHashMap = new HashMap[count];
+
 	while (1) {
 		cout << "Select your operation\n 1.show Students.hash\n 2.show kth leaf of Students_score.idx\n 3.Show your DB\n 4.exit..\n>>>>>>";
 		cin >> num;
