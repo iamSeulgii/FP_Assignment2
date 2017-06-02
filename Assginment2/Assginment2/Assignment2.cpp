@@ -130,51 +130,7 @@ int main() {
 				cout << tmp[j].records[i].name <<tmp[j].records[i].studentID<< endl;
 		}
 	}
-
-	/*
-	bool show_duplicate_buckets;
-	int id, n, i, block;
-	float score;
-	string choice;
-	FILE *inputDB = fopen("Students.DB", "rb");
-	fseek(inputDB, 0, SEEK_SET);
-	Students* tmp;
-	fread((void*)tmp, 4096, sizeof(Students)*count / 4096, inputDB);
-	show_duplicate_buckets = 0;
-
-	root = init();
-	Directory d(INIT_GLOB_DEPTH, BUCKETSIZE);
-	cout << endl << "Initialized directory structure" << endl;
-
-	cout << "enter the no of elements to be inserted\n";
-
-
-
-	for (i = 0; i < count; i++)
-	{
-	for (int j=0; j < 4096/sizeof(Students); j++){
-	fin >> name >> studentId >> score >> advisorId;
-	if (!search(root, score)) // B+Ʈ�� �ߺ� ����
-	{
-	insert(score, block); // B+Ʈ�� ����
-	}
-	if (!d.search(id)) // Ȯ���ؽ� �ߺ� ����
-	{
-	d.insert(id, block, 0); // Ȯ�� �ؽ� ����
-	}
-	}
-	}
-
-	for (int asd = 0; asd < root->n; asd++)
-	{
-	printf("%d %d, ", sizeof(*(root->child_ptr[asd])), root->child_ptr[asd]->n);
-	}
-	printf("\n");
-
-	traverse(root); // B+Ʈ�� ���
-	d.display(show_duplicate_buckets); // Ȯ���ؽ� ���
-	printf("%d\n%d\n", sizeof(Bucket), sizeof(root->child_ptr[0]));
-	_getch();*/
+		
 	return 0;
 
 }
