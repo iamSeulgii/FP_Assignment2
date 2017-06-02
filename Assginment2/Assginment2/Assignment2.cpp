@@ -12,17 +12,13 @@
 
 
 #define blockSize 4096
-
 #define NODESIZE 5
 #define EPS 0.0001
-
 #define BUCKETSIZE 3
 #define INIT_GLOB_DEPTH 0
 #define SHOW_DUPLICATE_BUCKETS 0
 
 using namespace std;
-
-
 
 typedef struct _students {
 
@@ -36,14 +32,16 @@ typedef struct _students {
 
 typedef struct _block {
 
-	Students records[128];
+	Students records[blockSize/sizeof(Students)];
 
 }Block;
+
+
 
 typedef struct _hashMap {
 
 	int key;
-	int value;
+	int tableNum;
 
 }HashMap;
 
@@ -123,6 +121,7 @@ public:
 		values.clear();
 	}
 
+	//insert values into Student.hash as binary format
 
 	int writeHashFile(FILE *& fout) {
 
@@ -132,7 +131,7 @@ public:
 		for (it = values.begin(); it != values.end(); it++) {
 
 			hashMap[i].key = it->first;
-			hashMap[i].value = it->second;
+			hashMap[i].tableNum = it->second;
 
 			i++;
 		}
@@ -269,13 +268,8 @@ public:
 
 	int writeHashFile(FILE *& fout, bool duplicates) {
 		fseek(fout, 0, SEEK_SET);
-		int i;
-		for (i = 0; i<buckets.size(); i++) {
-
+		for (int i = 0; i<buckets.size(); i++) 
 			buckets[i]->writeHashFile(fout);
-
-		}
-
 		return 0;
 	}
 
@@ -283,11 +277,8 @@ public:
 };
 
 
-
 //Funtion which gets inputData from file
 int getInputData(Block*& blocks, string input_str) {
-
-
 
 	//Get input data from .csv
 	ifstream input_data(input_str.c_str());
@@ -301,6 +292,8 @@ int getInputData(Block*& blocks, string input_str) {
 
 	blocks = new Block[count / numOfRecords + 1];
 
+
+	//initialize blocks 
 	for (int j = 0; j < count / numOfRecords + 1; j++) {
 		for (int i = 0; i < numOfRecords; i++) {
 			strcpy(blocks[j].records[i].name, "");
@@ -311,36 +304,29 @@ int getInputData(Block*& blocks, string input_str) {
 	}
 
 
+
+	//read inputFile and then put value into blocks
 	for (int j = 0; j < count / numOfRecords + 1; j++) {
-
-
 		for (int i = 0; i < numOfRecords; i++) {
 
 			string temp;
 			getline(input_data, buf);
 			tokenizer.setString(buf);
-			if (input_data.eof()) {
-				break;
-			}
-
+			if (input_data.eof()) break;
 
 			strncpy(blocks[j].records[i].name, tokenizer.next().c_str(), sizeof(blocks[j].records[i].name));
 			blocks[j].records[i].studentID = atoi(tokenizer.next().c_str());
 			blocks[j].records[i].score = atof(tokenizer.next().c_str());
 			blocks[j].records[i].advisorID = atoi(tokenizer.next().c_str());
-			/*cout << blocks[j].records[i].name << " " << blocks[j].records[i].studentID << " " <<
-			blocks[j].records[i].score << " " << blocks[j].records[i].advisorID << endl;*/
 		}
-
 	}
-
-
 
 	return count;
 }
 
 
 void insertDB(Block*& blocks, int count) {
+	//insert values into DB as binary format
 	int numOfRecords = blockSize / sizeof(Students);
 	FILE *DBFile = fopen("Students.DB", "wb");
 	fseek(DBFile, 0, SEEK_SET);
@@ -352,12 +338,11 @@ void readHashFile(HashMap*& readHashMap, int count) {
 
 	FILE *readHash = fopen("Students.hash", "rb");
 	fseek(readHash, 0, SEEK_SET);
-
-
 	fread((void*)readHashMap, sizeof(HashMap), count, readHash);
 
+	//print out readHashMap
 	for (int j = 0; j < count; j++) {
-		cout << readHashMap[j].key << " " << readHashMap[j].value << endl;
+		cout << readHashMap[j].key << " " << readHashMap[j].tableNum << endl;
 	}
 
 }
@@ -367,45 +352,40 @@ int main() {
 	int num;
 	Students *students;
 	Block *readBlocks, *writeBlocks;
-
-
 	int count = getInputData(writeBlocks, "sampleData.csv");
 	insertDB(writeBlocks, count);
-
 	int numOfRecords = blockSize / sizeof(Students);
-	Directory directory(INIT_GLOB_DEPTH, BUCKETSIZE);
 
-
-	FILE *readDB = fopen("Students.DB", "rb");
+	Directory directory(INIT_GLOB_DEPTH, BUCKETSIZE); //hash directory initialization
+	
+	//read values from Students.DB
+	FILE *readDB = fopen("Students.DB", "rb"); 
 	fseek(readDB, 0, SEEK_SET);
-
-	readBlocks = new Block[count / numOfRecords + 1];
+	readBlocks = new Block[count / numOfRecords + 1]; 
 	fread((void*)readBlocks, sizeof(Block), count / numOfRecords + 1, readDB);
 
-
+	//studentID is key of Hash
+	//insert key value into hash table
 	for (int j = 0; j < count / numOfRecords + 1; j++) {
-
 		for (int i = 0; i < numOfRecords; i++) {
-
 			directory.insert(readBlocks[j].records[i].studentID, j, 0);
-
 		}
 	}
 
-
-
+	//make Students.hash
 	FILE *hashFile = fopen("Students.hash", "wb");
-	// make .hash file
 	if (directory.writeHashFile(hashFile, SHOW_DUPLICATE_BUCKETS) == -1)
 		cout << ".hash file error." << endl;
-	HashMap* readHashMap = new HashMap[count];
 
+
+	HashMap* readHashMap = new HashMap[count];
 	while (1) {
 		cout << "Select your operation\n 1.show Students.hash\n 2.show kth leaf of Students_score.idx\n 3.Show your DB\n 4.exit..\n>>>>>>";
 		cin >> num;
 		switch (num) {
 
 		case 1:
+			//read values from Students.hash
 			readHashFile(readHashMap, count);
 			break;
 		case 2:
