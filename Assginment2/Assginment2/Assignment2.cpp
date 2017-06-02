@@ -40,6 +40,13 @@ typedef struct _block {
 
 }Block;
 
+typedef struct _hashMap {
+
+	int key;
+	int value;
+
+}HashMap;
+
 
 class Bucket {
 
@@ -87,6 +94,11 @@ public:
 			return 0;
 	}
 
+	int getValueSize() {
+
+		return values.size();
+	}
+
 	int getDepth(void) {
 		return depth;
 	}
@@ -112,17 +124,20 @@ public:
 	}
 
 
-	void display(void) {
+	int writeHashFile(FILE *& fout) {
+
 		map<int, int>::iterator it;
-		for (it = values.begin(); it != values.end(); it++)
-			cout << it->first << "(" << it->second << ") ";
-		cout << endl;
-	}
+		HashMap* hashMap = new HashMap[values.size()];
+		int i = 0;
+		for (it = values.begin(); it != values.end(); it++) {
 
+			hashMap[i].key = it->first;
+			hashMap[i].value = it->second;
 
-	int writeHashFile(FILE * fout) {
-		if (fwrite(this, 4096, 1, fout) == -1)
-			return -1;
+			i++;
+		}
+
+		fwrite((void*)hashMap, sizeof(HashMap), values.size(), fout);
 		return 0;
 	}
 
@@ -247,40 +262,20 @@ public:
 
 
 	void display(bool duplicates) {
-		int i, j, d;
-		string s;
-		set<string> shown;
-		for (i = 0; i<buckets.size(); i++) {
-			d = buckets[i]->getDepth();
-			s = bucket_id(i);
-			if (duplicates || shown.find(s) == shown.end()) {
-				shown.insert(s);
-				for (j = d; j <= global_depth; j++)
-					cout << " ";
-				cout << s << " ~~~> ";
-				buckets[i]->display();
-			}
-		}
+
 
 	}
 
-	int writeHashFile(FILE * fout) {
-		int i, j, d;
-		string s;
-		set<string> shown;
 
+	int writeHashFile(FILE *& fout, bool duplicates) {
+		fseek(fout, 0, SEEK_SET);
+		int i;
 		for (i = 0; i<buckets.size(); i++) {
-			d = buckets[i]->getDepth();
-			s = bucket_id(i);
-			if (shown.find(s) == shown.end()) {
-				shown.insert(s);
 
-				if (fwrite(&s, 4096, 1, fout) == -1)
-					return -1;
-				if (buckets[i]->writeHashFile(fout) == -1)
-					return -1;
-			}
+			buckets[i]->writeHashFile(fout);
+
 		}
+
 		return 0;
 	}
 
@@ -353,15 +348,29 @@ void insertDB(Block*& blocks, int count) {
 }
 
 
+void readHashFile(HashMap*& readHashMap, int count) {
+
+	FILE *readHash = fopen("Students.hash", "rb");
+	fseek(readHash, 0, SEEK_SET);
+
+
+	fread((void*)readHashMap, sizeof(HashMap), count, readHash);
+
+	for (int j = 0; j < count; j++) {
+		cout << readHashMap[j].key << " " << readHashMap[j].value << endl;
+	}
+
+}
+
 int main() {
 
+	int num;
 	Students *students;
 	Block *readBlocks, *writeBlocks;
 
 
 	int count = getInputData(writeBlocks, "sampleData.csv");
 	insertDB(writeBlocks, count);
-
 
 	int numOfRecords = blockSize / sizeof(Students);
 	Directory directory(INIT_GLOB_DEPTH, BUCKETSIZE);
@@ -383,13 +392,45 @@ int main() {
 		}
 	}
 
-	FILE * hashFile = fopen("Students.hash", "wb");
+
+
+	FILE *hashFile = fopen("Students.hash", "wb");
 	// make .hash file
-	if (directory.writeHashFile(hashFile) == -1)
+	if (directory.writeHashFile(hashFile, SHOW_DUPLICATE_BUCKETS) == -1)
 		cout << ".hash file error." << endl;
+	HashMap* readHashMap = new HashMap[count];
 
+	while (1) {
+		cout << "Select your operation\n 1.show Students.hash\n 2.show kth leaf of Students_score.idx\n 3.Show your DB\n 4.exit..\n>>>>>>";
+		cin >> num;
+		switch (num) {
 
-	directory.display(SHOW_DUPLICATE_BUCKETS);
+		case 1:
+			readHashFile(readHashMap, count);
+			break;
+		case 2:
+			cout << "...";
+
+			break;
+		case 3:
+			for (int j = 0; j < count / numOfRecords + 1; j++) {
+				for (int i = 0; i < numOfRecords; i++) {
+					if (strcmp(readBlocks[j].records[i].name, ""))
+						cout << readBlocks[j].records[i].name << " " << readBlocks[j].records[i].studentID << " "
+						<< readBlocks[j].records[i].score << " " << readBlocks[j].records[i].advisorID << endl;
+				}
+			}
+			break;
+		case 4:
+			return 0;
+			break;
+		default:
+			cout << "Not valid operation number!\n";
+		}
+		cout << endl;
+
+	}
+
 
 	return 0;
 }
